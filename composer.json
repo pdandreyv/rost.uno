@@ -22,11 +22,8 @@
     },
     "repositories": [
         {
-            "type": "path",
-            "url": "../rostpack",
-            "options": {
-                "symlink": true
-            }
+            "type": "vcs",
+            "url": "https://github.com/pdandreyv/rostpack.git"
         }
     ],
     "autoload": {
