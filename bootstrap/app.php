@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Регистрация middleware для RostPack
+        $middleware->alias([
+            'telegram.auth' => \RostPack\RostPack\Http\Middleware\TelegramAuth::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
