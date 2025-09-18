@@ -23,3 +23,24 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 composer.lock
+
+# RostPack published files
+/config/rostpack.php
+/database/migrations/*rost*
+/resources/views/vendor/rostpack
+/resources/lang/vendor/rostpack
+/public/vendor/rostpack
+
+# Vite files
+/public/build
+/public/hot
+/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# RostPack Vite config files (published by package)
+/vite.config.js
+/package.json
+/tailwind.config.js
+/postcss.config.js

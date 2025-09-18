@@ -92,4 +92,25 @@ return [
         'minify' => env('ROSTPACK_MINIFY_ASSETS', false),
         'version' => env('ROSTPACK_ASSETS_VERSION', '1.0.0'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Настройки Telegram бота
+    |--------------------------------------------------------------------------
+    |
+    | Конфигурация для работы с Telegram Bot API
+    |
+    */
+
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME'),
+        'webhook_url' => env('TELEGRAM_WEBHOOK_URL'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        'timeout' => env('TELEGRAM_TIMEOUT', 30),
+        'retries' => env('TELEGRAM_RETRIES', 3),
+        'parse_mode' => env('TELEGRAM_PARSE_MODE', 'HTML'),
+        'disable_web_page_preview' => env('TELEGRAM_DISABLE_WEB_PAGE_PREVIEW', true),
+        'disable_notification' => env('TELEGRAM_DISABLE_NOTIFICATION', false),
+    ],
 ];
