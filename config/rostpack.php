@@ -112,5 +112,17 @@ return [
         'parse_mode' => env('TELEGRAM_PARSE_MODE', 'HTML'),
         'disable_web_page_preview' => env('TELEGRAM_DISABLE_WEB_PAGE_PREVIEW', true),
         'disable_notification' => env('TELEGRAM_DISABLE_NOTIFICATION', false),
+        
+        // Тестовые данные для режима разработки
+        'dev_user' => [
+            'id' => env('TELEGRAM_DEV_USER_ID', 123456789),
+            'first_name' => env('TELEGRAM_DEV_FIRST_NAME', 'Test'),
+            'last_name' => env('TELEGRAM_DEV_LAST_NAME', 'User'),
+            'username' => env('TELEGRAM_DEV_USERNAME', 'testuser'),
+            'language_code' => env('TELEGRAM_DEV_LANGUAGE_CODE', 'ru'),
+            'is_premium' => env('TELEGRAM_DEV_IS_PREMIUM', true),
+            'allows_write_to_pm' => env('TELEGRAM_DEV_ALLOWS_WRITE_TO_PM', true),
+            'photo_url' => env('TELEGRAM_DEV_PHOTO_URL', 'https://via.placeholder.com/150'),
+        ],
     ],
 ];

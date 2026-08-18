@@ -15,6 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'telegram.auth' => \RostPack\RostPack\Http\Middleware\TelegramAuth::class,
         ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'rostpack/telegram/webhook',
+            'rostpack/auth/telegram',
+            'rostpack/auth/telegram/callback',
+            'rostpack/auth/webapp',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
