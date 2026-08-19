@@ -11,8 +11,10 @@ class RostPack {
     constructor() {
         this.version = '1.0.0';
         this.initialized = false;
-        this.debug = false; // Включаем дебаг по умолчанию
+        this.debug = false;
         this.debugContainer = null;
+        this.isWebApp = false;
+        this.telegramWebApp = null;
         this.init();
     }
 
@@ -43,6 +45,7 @@ class RostPack {
     onDOMReady() {
         this.setupEventListeners();
         this.animateElements();
+        this.updateAuthUiForEnvironment();
         this.setupTelegramWebApp();
         this.setupDebugContainer();
     }
@@ -167,62 +170,50 @@ class RostPack {
     }
 
     /**
-     * Проверить, запущено ли приложение в Telegram WebApp
+     * Проверить, запущено ли приложение в Telegram Mini App
      */
     checkTelegramWebApp() {
-        this.log('🔍 Проверка Telegram WebApp');
-        
-        // Логируем все доступные данные для отладки
-        this.log('🔍 Отладочная информация:', {
-            'window.rostpackConfig': window.rostpackConfig,
-            'isDevelopmentMode': window.rostpackConfig?.isDevelopmentMode || false,
-            'window.Telegram': typeof window.Telegram !== 'undefined' ? 'доступен' : 'недоступен',
-            'window.Telegram.WebApp': typeof window.Telegram !== 'undefined' && window.Telegram.WebApp ? 'доступен' : 'недоступен',
-            'navigator.userAgent': navigator.userAgent,
-            'window.location.href': window.location.href,
-            'document.referrer': document.referrer,
-            'window.location.search': window.location.search,
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        const initData = tg && typeof tg.initData === 'string' ? tg.initData : '';
+        const hasInitData = initData.length > 0;
+
+        this.log('Проверка Telegram Mini App', {
+            hasTelegramObject: !!tg,
+            hasInitData,
+            platform: tg ? tg.platform : null,
         });
-        
-        // Используем данные из PHP конфигурации
-        if (window.rostpackConfig && window.rostpackConfig.isTelegramWebApp) {
+
+        if (hasInitData) {
             this.isWebApp = true;
-            this.log('📱 Telegram WebApp обнаружен (данные из PHP)');
-            
-            // В режиме разработки имитируем Telegram WebApp объект
-            if (window.rostpackConfig && window.rostpackConfig.isDevelopmentMode) {
-                this.log('🔧 Режим разработки: имитируем Telegram WebApp объект');
-                this.telegramWebApp = this.createMockTelegramWebApp();
-                this.log('📱 Mock Telegram WebApp объект создан');
-                
-                // Настраиваем WebApp
-                this.setupTelegramWebApp();
-            } else if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
-                this.telegramWebApp = window.Telegram.WebApp;
-                this.log('📱 Telegram WebApp объект доступен');
-                this.log('📱 WebApp данные:', {
-                    'initData': this.telegramWebApp.initData,
-                    'initDataUnsafe': this.telegramWebApp.initDataUnsafe,
-                    'version': this.telegramWebApp.version,
-                    'platform': this.telegramWebApp.platform,
-                    'colorScheme': this.telegramWebApp.colorScheme,
-                    'themeParams': this.telegramWebApp.themeParams,
-                });
-                
-                // Настраиваем WebApp
-                this.setupTelegramWebApp();
-            } else {
-                this.log('⚠️ Telegram WebApp объект недоступен, но PHP определил WebApp');
-            }
+            this.telegramWebApp = tg;
+            this.log('Открыто как Telegram Mini App');
+        } else if (window.rostpackConfig?.isDevelopmentMode && window.rostpackConfig?.isTelegramWebApp) {
+            this.isWebApp = true;
+            this.telegramWebApp = this.createMockTelegramWebApp();
+            this.log('Режим разработки: mock Mini App');
         } else {
             this.isWebApp = false;
-            this.log('🌐 Обычный веб-браузер (данные из PHP)');
-            
-            // Дополнительная проверка на клиентской стороне
-            if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
-                this.log('⚠️ Telegram WebApp объект доступен, но PHP не определил WebApp');
-                this.log('⚠️ Возможно, проблема с определением WebApp на сервере');
-            }
+            this.telegramWebApp = null;
+            this.log('Открыто в обычном браузере');
+        }
+
+        this.updateAuthUiForEnvironment();
+    }
+
+    /**
+     * Виджет логина — только в браузере, в Mini App показываем автовход
+     */
+    updateAuthUiForEnvironment() {
+        const widgets = document.querySelectorAll('.telegram-login-widget');
+        const statuses = document.querySelectorAll('.js-webapp-auth-status');
+
+        if (this.isWebApp) {
+            widgets.forEach((el) => { el.style.display = 'none'; });
+            statuses.forEach((el) => { el.style.display = ''; });
+            document.querySelectorAll('.js-browser-only-logout').forEach((el) => { el.style.display = 'none'; });
+        } else {
+            statuses.forEach((el) => { el.style.display = 'none'; });
+            widgets.forEach((el) => { el.style.display = ''; });
         }
     }
 
@@ -455,90 +446,81 @@ class RostPack {
      */
     attemptAutoAuth() {
         if (!this.telegramWebApp) {
-            this.log('❌ Telegram WebApp недоступен, пропускаем авторизацию');
+            this.log('Telegram WebApp недоступен, пропускаем авторизацию');
             return;
         }
 
-        this.log('🔐 Попытка автоматической авторизации');
-        // Проверяем, не авторизован ли уже пользователь
         if (this.isUserAuthenticated()) {
-            this.log('✅ Пользователь уже авторизован, пропускаем авторизацию');
+            this.log('Пользователь уже авторизован');
             return;
         }
 
-        // Получаем данные пользователя из WebApp
+        const initData = this.telegramWebApp.initData;
         const user = this.telegramWebApp.initDataUnsafe?.user;
-        
-        if (user) {
-            this.log('👤 Данные пользователя получены:', user);
-            
-            // Отправляем данные на сервер для авторизации
-            this.sendWebAppAuthData(user);
-        } else {
-            this.log('❌ Данные пользователя недоступны');
+
+        if (!initData || !user) {
+            this.log('Нет initData пользователя Mini App');
+            return;
         }
+
+        this.sendWebAppAuthData(user, initData);
     }
 
     /**
      * Отправить данные авторизации WebApp на сервер
      */
-    sendWebAppAuthData(user) {
-        this.log('📤 Отправка данных авторизации WebApp на сервер');
+    sendWebAppAuthData(user, initData) {
         const authUrl = window.rostpackConfig?.webappAuthUrl || '/rostpack/auth/webapp';
-        
-        this.log('📤 URL авторизации:', authUrl);
-        this.log('👤 Данные пользователя:', user);
-
-        // Показываем индикатор загрузки
         this.showLoadingIndicator();
 
         fetch(authUrl, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-Telegram-WebApp-Data': this.telegramWebApp.initData
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
-            body: JSON.stringify(user)
+            body: JSON.stringify({
+                initData: initData,
+                user: user
+            })
         })
         .then(response => {
             if (response.ok) {
                 return response.json();
-            } else {
-                return response.text().then(text => {
-                    this.log('❌ Ошибка ответа сервера:', text);
-                    throw new Error(`Ошибка авторизации (${response.status}): ${text}`);
-                });
             }
+            return response.text().then(text => {
+                throw new Error(`Ошибка авторизации (${response.status}): ${text}`);
+            });
         })
         .then(data => {
-            this.log('✅ Ответ сервера:', data);
-            
             if (data.success) {
-                this.log('🎉 Авторизация успешна!');
-                this.hideLoadingIndicator();
-                
-                // НЕ обновляем страницу, просто скрываем индикатор загрузки
-                // Пользователь уже авторизован и контент должен обновиться автоматически
-                this.log('✅ Авторизация успешна, пользователь авторизован');
-                
-                // Можно добавить уведомление об успешной авторизации
-                if (this.telegramWebApp && this.telegramWebApp.showAlert) {
-                    this.telegramWebApp.showAlert('Авторизация успешна!');
-                }
-            } else {
-                throw new Error(data.message || 'Ошибка авторизации');
+                window.location.href = data.redirect || window.rostpackConfig?.indexUrl || '/rostpack/';
+                return;
             }
+            throw new Error(data.message || 'Ошибка авторизации');
         })
         .catch(error => {
-            this.log('❌ Ошибка авторизации:', error);
+            this.log('Ошибка авторизации Mini App', error);
             this.hideLoadingIndicator();
-            // Не показываем alert в WebApp, так как это может быть неудобно
-            if (!this.isWebApp) {
-                alert('Ошибка авторизации: ' + error.message);
-            }
+            const statuses = document.querySelectorAll('.js-webapp-auth-status');
+            statuses.forEach((el) => {
+                el.innerHTML = '<p class="text-sm text-red-600">Не удалось войти автоматически. Откройте приложение ещё раз из Telegram.</p>';
+            });
         });
+    }
+
+    /**
+     * Проверить, авторизован ли пользователь
+     */
+    isUserAuthenticated() {
+        if (window.rostpackConfig?.isAuthenticated) {
+            return true;
+        }
+
+        return !!document.querySelector('.profile-container');
     }
 
     /**
@@ -573,36 +555,6 @@ class RostPack {
         if (loader) {
             loader.remove();
         }
-    }
-
-    /**
-     * Проверить, авторизован ли пользователь
-     */
-    isUserAuthenticated() {
-        this.log('🔍 Проверка статуса авторизации пользователя');
-        
-        // Проверяем наличие элементов, указывающих на авторизацию
-        const authElements = document.querySelectorAll('a[href*="profile"]');
-        const hasAuthElements = authElements.length > 0;
-        
-        // Проверяем наличие кнопок авторизации (их не должно быть, если пользователь авторизован)
-        const loginButtons = document.querySelectorAll('.telegram-login-widget');
-        const hasLoginButtons = loginButtons.length > 0;
-        
-        // Проверяем URL - если мы на главной странице, значит авторизованы
-        const isOnIndex = window.location.pathname === '/rostpack' || window.location.pathname === '/rostpack/';
-        
-        this.log('Auth check:', {
-            hasAuthElements,
-            hasLoginButtons,
-            isOnIndex,
-            pathname: window.location.pathname
-        });
-        
-        const isAuthenticated = hasAuthElements || isOnIndex;
-        this.log(`🔐 Результат проверки авторизации: ${isAuthenticated ? 'авторизован' : 'не авторизован'}`);
-        
-        return isAuthenticated;
     }
 
     /**
