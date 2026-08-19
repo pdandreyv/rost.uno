@@ -15,6 +15,8 @@ class RostPack {
         this.debugContainer = null;
         this.isWebApp = false;
         this.telegramWebApp = null;
+        this.webAppSetupDone = false;
+        this.autoAuthStarted = false;
         this.init();
     }
 
@@ -45,9 +47,13 @@ class RostPack {
     onDOMReady() {
         this.setupEventListeners();
         this.animateElements();
+        this.checkTelegramWebApp();
         this.updateAuthUiForEnvironment();
         this.setupTelegramWebApp();
         this.setupDebugContainer();
+        if (!this.isWebApp && !this.isUserAuthenticated()) {
+            this.retryTelegramDetection();
+        }
     }
 
     /**
@@ -174,16 +180,18 @@ class RostPack {
      */
     checkTelegramWebApp() {
         const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-        const initData = tg && typeof tg.initData === 'string' ? tg.initData : '';
+        const initData = this.getTelegramInitData(tg);
+        const user = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
         const hasInitData = initData.length > 0;
 
         this.log('Проверка Telegram Mini App', {
             hasTelegramObject: !!tg,
             hasInitData,
+            hasUser: !!user,
             platform: tg ? tg.platform : null,
         });
 
-        if (hasInitData) {
+        if (hasInitData || user) {
             this.isWebApp = true;
             this.telegramWebApp = tg;
             this.log('Открыто как Telegram Mini App');
@@ -200,9 +208,37 @@ class RostPack {
         this.updateAuthUiForEnvironment();
     }
 
+    getTelegramInitData(tg) {
+        if (tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
+            try { sessionStorage.setItem('tgWebAppInitData', tg.initData); } catch (e) {}
+            return tg.initData;
+        }
+        try {
+            return sessionStorage.getItem('tgWebAppInitData') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
     /**
-     * Виджет логина — только в браузере, в Mini App показываем автовход
+     * Telegram иногда отдаёт initData с задержкой — повторяем проверку.
      */
+    retryTelegramDetection() {
+        let attempts = 0;
+        const timer = setInterval(() => {
+            attempts += 1;
+            this.checkTelegramWebApp();
+            if (this.isWebApp) {
+                clearInterval(timer);
+                this.updateAuthUiForEnvironment();
+                this.setupTelegramWebApp();
+                return;
+            }
+            if (attempts >= 10) {
+                clearInterval(timer);
+            }
+        }, 200);
+    }
     updateAuthUiForEnvironment() {
         const widgets = document.querySelectorAll('.telegram-login-widget');
         const statuses = document.querySelectorAll('.js-webapp-auth-status');
@@ -370,41 +406,27 @@ class RostPack {
      */
     setupTelegramWebApp() {
         if (!this.isWebApp || !this.telegramWebApp) {
-            this.log('❌ Telegram WebApp недоступен, пропускаем настройку');
+            this.log('Telegram WebApp недоступен, пропускаем настройку');
             return;
         }
 
-        this.log('🔧 Настройка Telegram WebApp...');
-
-        // Расширяем приложение на весь экран
-        this.telegramWebApp.expand();
-        this.log('📱 WebApp расширен на весь экран');
-
-        // Настраиваем тему
-        this.telegramWebApp.ready();
-        this.log('🎨 WebApp готов к работе');
-
-        // Устанавливаем обработчики событий
-        this.telegramWebApp.onEvent('viewportChanged', () => {
-            this.log('Viewport changed');
-        });
-
-        // Показываем главную кнопку, если нужно
-        if (this.telegramWebApp.MainButton) {
-            this.telegramWebApp.MainButton.hide();
-            this.log('🔘 Главная кнопка скрыта');
+        if (!this.webAppSetupDone) {
+            this.webAppSetupDone = true;
+            if (typeof this.telegramWebApp.expand === 'function') {
+                this.telegramWebApp.expand();
+            }
+            if (typeof this.telegramWebApp.ready === 'function') {
+                this.telegramWebApp.ready();
+            }
+            if (this.telegramWebApp.MainButton) {
+                this.telegramWebApp.MainButton.hide();
+            }
+            if (this.telegramWebApp.BackButton) {
+                this.telegramWebApp.BackButton.hide();
+            }
+            this.applyTelegramTheme();
         }
 
-        // Показываем кнопку "Назад", если нужно
-        if (this.telegramWebApp.BackButton) {
-            this.telegramWebApp.BackButton.hide();
-            this.log('⬅️ Кнопка "Назад" скрыта');
-        }
-
-        // Применяем тему Telegram
-        this.applyTelegramTheme();
-
-        // Пытаемся автоматически авторизовать пользователя
         this.attemptAutoAuth();
     }
 
@@ -445,25 +467,24 @@ class RostPack {
      * Попытка автоматической авторизации
      */
     attemptAutoAuth() {
+        if (this.autoAuthStarted || this.isUserAuthenticated()) {
+            return;
+        }
+
         if (!this.telegramWebApp) {
-            this.log('Telegram WebApp недоступен, пропускаем авторизацию');
             return;
         }
 
-        if (this.isUserAuthenticated()) {
-            this.log('Пользователь уже авторизован');
-            return;
-        }
-
-        const initData = this.telegramWebApp.initData;
+        const initData = this.getTelegramInitData(this.telegramWebApp);
         const user = this.telegramWebApp.initDataUnsafe?.user;
 
-        if (!initData || !user) {
+        if (!initData) {
             this.log('Нет initData пользователя Mini App');
             return;
         }
 
-        this.sendWebAppAuthData(user, initData);
+        this.autoAuthStarted = true;
+        this.sendWebAppAuthData(user || {}, initData);
     }
 
     /**
@@ -475,7 +496,7 @@ class RostPack {
 
         fetch(authUrl, {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -497,12 +518,13 @@ class RostPack {
         })
         .then(data => {
             if (data.success) {
-                window.location.href = data.redirect || window.rostpackConfig?.indexUrl || '/rostpack/';
+                window.location.reload();
                 return;
             }
             throw new Error(data.message || 'Ошибка авторизации');
         })
         .catch(error => {
+            this.autoAuthStarted = false;
             this.log('Ошибка авторизации Mini App', error);
             this.hideLoadingIndicator();
             const statuses = document.querySelectorAll('.js-webapp-auth-status');
