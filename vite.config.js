@@ -5,8 +5,8 @@ export default defineConfig({
     plugins: [
         laravel({
             input: [
-                'vendor/pdandreyv/rostpack/resources/css/rostpack.css',
-                'vendor/pdandreyv/rostpack/resources/js/rostpack.js',
+                'resources/css/rostpack.css',
+                'resources/js/rostpack.js',
             ],
             refresh: true,
         }),

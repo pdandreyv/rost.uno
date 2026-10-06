@@ -1,11 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HomeController;
+use App\Http\Controllers\IndexController;
 
-Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::middleware(['rostpack.webapp'])->group(function () {
+    Route::get('/', [IndexController::class, 'index'])->name('home');
+});
 
-// Маршрут для авторизации - перенаправляем на rostpack
 Route::get('/login', function () {
-    return redirect()->route('rostpack.index');
+    return redirect()->route('home');
 })->name('login');
+
+require __DIR__.'/rostpack.php';

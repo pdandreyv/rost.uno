@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use RostPack\RostPack\Models\BlogPost;
-use RostPack\RostPack\Models\Page;
-use RostPack\RostPack\Models\TelegramUser;
+use App\Models\BlogPost;
+use App\Models\Page;
+use App\Models\TelegramUser;
 use Illuminate\Support\Str;
 
 class RostPackSeeder extends Seeder

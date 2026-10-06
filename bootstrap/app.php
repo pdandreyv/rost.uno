@@ -11,9 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Регистрация middleware для RostPack
         $middleware->alias([
-            'telegram.auth' => \RostPack\RostPack\Http\Middleware\TelegramAuth::class,
+            'telegram.auth' => \App\Http\Middleware\TelegramAuth::class,
+            'rostpack.webapp' => \App\Http\Middleware\ShareTelegramWebAppData::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

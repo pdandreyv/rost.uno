@@ -125,10 +125,12 @@ class RostPack {
         
         fetch(authUrl, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
             body: JSON.stringify(user)
         })
@@ -147,7 +149,7 @@ class RostPack {
             this.log('Server response:', data);
             
             if (data.success) {
-                window.location.href = window.rostpackConfig?.indexUrl || '/rostpack/';
+                window.location.href = data.redirect || window.rostpackConfig?.indexUrl || '/';
             } else {
                 throw new Error(data.message || 'Ошибка авторизации');
             }
@@ -496,7 +498,7 @@ class RostPack {
 
         fetch(authUrl, {
             method: 'POST',
-            credentials: 'include',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -518,7 +520,7 @@ class RostPack {
         })
         .then(data => {
             if (data.success) {
-                window.location.reload();
+                window.location.href = data.redirect || window.rostpackConfig?.indexUrl || '/';
                 return;
             }
             throw new Error(data.message || 'Ошибка авторизации');
